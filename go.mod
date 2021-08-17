@@ -1,4 +1,4 @@
-module github.com/lamnguyencse17/gocket.io
+module github.com/lamnguyencse17/gocketio
 
 go 1.16
 
