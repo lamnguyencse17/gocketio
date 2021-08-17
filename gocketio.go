@@ -18,13 +18,12 @@ type Gocket struct {
 	mu sync.Mutex
 }
 
-func (gocketObject *Gocket) StartGocket(){
-	quit := make(chan bool)
+func (gocketObject *Gocket) StartGocket(quit chan bool){
+
 	gocketObject.mu.Lock()
 	gocketObject.connection = establishConnection(gocketObject.Scheme, gocketObject.Host, gocketObject.Path, gocketObject.RawQuery)
 	gocketObject.mu.Unlock()
 	gocketObject.startListening(quit)
-	<- quit
 }
 
 func (gocketObject *Gocket) On(event string, callBack func(interface{})){
@@ -59,9 +58,7 @@ func establishConnection(scheme string, host string, path string, rawQuery strin
 }
 
 func (gocketObject *Gocket) startListening(quit chan bool) {
-	gocketObject.mu.Lock()
 	connection := gocketObject.connection
-	gocketObject.mu.Unlock()
 	defer connection.Close()
 	for {
 		_, message, err := connection.ReadMessage()
