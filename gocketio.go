@@ -1,8 +1,9 @@
 package gocketio
 
 import (
-	"encoding/json"
 	"github.com/gorilla/websocket"
+	"github.com/lamnguyencse17/gocketio/events"
+	"github.com/lamnguyencse17/gocketio/message"
 	"log"
 	"net/url"
 	"sync"
@@ -14,7 +15,7 @@ type Gocket struct {
 	Path       string
 	RawQuery   string
 	connection *websocket.Conn
-	listeners map[string]func(interface{})
+	listeners map[string]func(data events.CallbackData)
 	mu sync.Mutex
 }
 
@@ -26,21 +27,17 @@ func (gocketObject *Gocket) StartGocket(quit chan bool){
 	gocketObject.startListening(quit)
 }
 
-func (gocketObject *Gocket) On(event string, callBack func(interface{})){
+func (gocketObject *Gocket) On(event string, callBack func(data events.CallbackData)){
 	if gocketObject.listeners == nil {
-		gocketObject.listeners = make(map[string]func(interface{}))
+		gocketObject.listeners = make(map[string]func(data events.CallbackData))
 	}
 	gocketObject.listeners[event] = callBack
 }
 
 func (gocketObject *Gocket) Emit(event string, data interface{}){
-	payload, err := json.Marshal(data)
-	if err != nil {
-		return
-	}
-	subscribeMessage := wrapMessage(SOCKETIO_EMIT, event, string(payload))
+	subscribeMessage := message.WrapMessage(events.SocketioEmit, event, data)
 	gocketObject.mu.Lock()
-	err = gocketObject.connection.WriteMessage(WS_MESSAGE_TYPE, subscribeMessage)
+	err := gocketObject.connection.WriteMessage(message.WsMessageType, subscribeMessage)
 	gocketObject.mu.Unlock()
 	if err != nil {
 		log.Println(err)
@@ -61,26 +58,26 @@ func (gocketObject *Gocket) startListening(quit chan bool) {
 	connection := gocketObject.connection
 	defer connection.Close()
 	for {
-		_, message, err := connection.ReadMessage()
+		_, rawMessage, err := connection.ReadMessage()
 		if err != nil {
 			log.Println("read:", err)
 			quit <- true
 		}
-		log.Printf("recv: %s", message)
-		parsedMessage := parseMessage(message)
-		switch parsedMessage.code {
-		case SOCKETIO_OPEN:
+		log.Printf("recv: %s", rawMessage)
+		parsedMessage := message.ParseMessage(rawMessage)
+		switch parsedMessage.Code {
+		case events.SocketioOpen:
 			{
-				connectMessage := []byte(SOCKETIO_CONNECT)
+				connectMessage := []byte(events.SocketioConnect)
 				gocketObject.mu.Lock()
-				err := connection.WriteMessage(WS_MESSAGE_TYPE, connectMessage)
+				err := connection.WriteMessage(message.WsMessageType, connectMessage)
 				gocketObject.mu.Unlock()
 				if err != nil {
 					log.Println(err)
 					quit <- true
 				}
 			}
-		case SOCKETIO_CONNECT:
+		case events.SocketioConnect:
 			{
 				//TODO: Legacy from holovn. Migrating later
 				//log.Println("CONNECTION ESTABLISHED")
@@ -90,18 +87,17 @@ func (gocketObject *Gocket) startListening(quit chan bool) {
 				//}
 				//subscribeMessage := wrapMessage(SOCKETIO_EMIT, EVENT_SUBSCRIBE, string(subscribePayload))
 				//err = connection.WriteMessage(WS_MESSAGE_TYPE, subscribeMessage)
-
-				if callBack, ok := gocketObject.listeners["connect"]; ok {
-					// TODO: Generalize this later
-					var empty interface{}
-					callBack(empty)
+				if callBack, ok := gocketObject.listeners[events.EventConnect]; ok {
+					callBack(events.CallbackData{Event: events.EventConnect})
 				}
 			}
-		case SOCKETIO_EMIT:
+		case events.SocketioEmit:
 			{
-				log.Println("EMIT SUCCESS")
+				if callBack, ok := gocketObject.listeners[events.EventConnect]; ok {
+					callBack(events.CallbackData{Event: events.EventConnect})
+				}
 			}
-		case SOCKETIO_PING:
+		case events.SocketioPing:
 			{
 				err = pongSocketIO(connection)
 				if err != nil {
@@ -116,8 +112,8 @@ func (gocketObject *Gocket) startListening(quit chan bool) {
 }
 
 func pongSocketIO(connection *websocket.Conn) error {
-	pongMessage := []byte(SOCKETIO_PONG)
-	err := connection.WriteMessage(WS_MESSAGE_TYPE, pongMessage)
+	pongMessage := []byte(events.SocketioPong)
+	err := connection.WriteMessage(message.WsMessageType, pongMessage)
 	if err != nil {
 		return err
 	}
