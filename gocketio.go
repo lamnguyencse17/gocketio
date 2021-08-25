@@ -86,15 +86,16 @@ func (gocketObject *Gocket) startListening(quit chan bool) {
 				//	return
 				//}
 				//subscribeMessage := wrapMessage(SOCKETIO_EMIT, EVENT_SUBSCRIBE, string(subscribePayload))
-				//err = connection.WriteMessage(WS_MESSAGE_TYPE, subscribeMessage)
+				//err = connection.WriteMessage(WS_MESSAGE_TYPE, subscribeMessage
 				if callBack, ok := gocketObject.listeners[events.EventConnect]; ok {
 					callBack(events.CallbackData{Event: events.EventConnect})
 				}
 			}
 		case events.SocketioEmit:
 			{
-				if callBack, ok := gocketObject.listeners[events.EventConnect]; ok {
-					callBack(events.CallbackData{Event: events.EventConnect})
+				unwrappedMessage := message.UnwrapMessage(parsedMessage.Data)
+				if callBack, ok := gocketObject.listeners[unwrappedMessage.Event]; ok {
+					callBack(events.CallbackData{Event: unwrappedMessage.Event, Data: unwrappedMessage.Data})
 				}
 			}
 		case events.SocketioPing:

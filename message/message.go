@@ -2,12 +2,18 @@ package message
 
 import (
 	"encoding/json"
+	"log"
 	"strconv"
 )
 
 type IParsedMessage struct {
 	Code string
 	Data string
+}
+
+type IUnwrappedMessage struct {
+	Event string
+	Data map[string] interface{}
 }
 
 const WsMessageType = 1
@@ -21,7 +27,7 @@ func ParseMessage(message []byte) (parsedMessage IParsedMessage) {
 	if err != nil {
 		return IParsedMessage{Code: string(messageString[0]), Data: messageString[1:]}
 	}
-	return IParsedMessage{Code: messageString[:2], Data: messageString[3:]}
+	return IParsedMessage{Code: messageString[:2], Data: messageString[2:]}
 }
 
 func WrapMessage(socketIOEvent string, event string, data interface{}) (wrappedMessage []byte) {
@@ -33,4 +39,15 @@ func WrapMessage(socketIOEvent string, event string, data interface{}) (wrappedM
 		return nil
 	}
 	return append([]byte(socketIOEvent),bodyText...)
+}
+
+func UnwrapMessage(message string)(unwrappedMessage IUnwrappedMessage){
+	var initialMessage = make([]interface{}, 0)
+	err := json.Unmarshal([]byte(message), &initialMessage)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	unwrappedMessage.Event, _ = initialMessage[0].(string)
+	unwrappedMessage.Data, _ = initialMessage[1].(map[string]interface{})
+	return unwrappedMessage
 }
