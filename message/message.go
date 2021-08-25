@@ -13,7 +13,7 @@ type IParsedMessage struct {
 
 type IUnwrappedMessage struct {
 	Event string
-	Data map[string] interface{}
+	Data interface{}
 }
 
 const WsMessageType = 1
